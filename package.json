@@ -1,0 +1,21 @@
+{
+  "name": "travel-server",
+  "version": "1.0.0",
+  "description": "Server for travel destinations website",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "travel",
+    "destinations",
+    "api"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}
+
