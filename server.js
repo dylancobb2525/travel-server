@@ -22,7 +22,7 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Travel destinations data
-const destinations = [
+let destinations = [
   {
     "_id": 1,
     "name": "Fort Lauderdale, Florida",
@@ -165,6 +165,18 @@ const destinations = [
   }
 ];
 
+const normalizeImagePath = (imagePath = "") => {
+  if (!imagePath || imagePath.startsWith('http')) {
+    return imagePath;
+  }
+  return imagePath.startsWith('images/') ? imagePath : `images/${imagePath}`;
+};
+
+destinations = destinations.map(destination => ({
+  ...destination,
+  main_image: normalizeImagePath(destination.main_image),
+}));
+
 // Routes
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
@@ -206,11 +218,11 @@ app.post('/api/destinations', upload.single('img'), (req, res) => {
   };
 
   if (req.body.main_image && !req.file) {
-    destination.main_image = req.body.main_image;
+    destination.main_image = normalizeImagePath(req.body.main_image);
   }
 
   if (req.file) {
-    destination.main_image = req.file.filename;
+    destination.main_image = normalizeImagePath(req.file.filename);
   }
 
   destinations.push(destination);
