@@ -229,6 +229,50 @@ app.post('/api/destinations', upload.single('img'), (req, res) => {
   res.status(200).send(destination);
 });
 
+app.put('/api/destinations/:id', upload.single('img'), (req, res) => {
+  const destination = destinations.find((d) => d._id === parseInt(req.params.id));
+  
+  if (!destination) {
+    res.status(404).send('The destination you wanted to edit is unavailable');
+    return;
+  }
+
+  const isValidUpdate = validateDestination(req.body);
+
+  if (isValidUpdate.error) {
+    console.log('Invalid Info', isValidUpdate.error.details[0].message);
+    res.status(400).send(isValidUpdate.error.details[0].message);
+    return;
+  }
+
+  destination.name = req.body.name;
+  destination.description = req.body.description;
+  destination.category = req.body.category;
+
+  if (req.body.main_image && !req.file) {
+    destination.main_image = normalizeImagePath(req.body.main_image);
+  }
+
+  if (req.file) {
+    destination.main_image = normalizeImagePath(req.file.filename);
+  }
+
+  res.status(200).send(destination);
+});
+
+app.delete('/api/destinations/:id', (req, res) => {
+  const destination = destinations.find((d) => d._id === parseInt(req.params.id));
+  
+  if (!destination) {
+    res.status(404).send('The destination you wanted to delete is unavailable');
+    return;
+  }
+
+  const index = destinations.indexOf(destination);
+  destinations.splice(index, 1);
+  res.status(200).send(destination);
+});
+
 const validateDestination = (destination) => {
   const schema = Joi.object({
     _id: Joi.allow(''),
