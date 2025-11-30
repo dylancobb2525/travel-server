@@ -24,7 +24,10 @@ app.use(express.static('public'));
 
 // MongoDB connection
 mongoose
-  .connect(process.env.MONGODB_URI || 'mongodb+srv://dylancobb2525_db_user:77He604CsNTXsS7X@cluster0.2w3n9nd.mongodb.net/travel-destinations?retryWrites=true&w=majority')
+  .connect(process.env.MONGODB_URI || 'mongodb+srv://dylancobb2525_db_user:77He604CsNTXsS7X@cluster0.2w3n9nd.mongodb.net/travel-destinations?retryWrites=true&w=majority', {
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+  })
   .then(() => {
     console.log('connected to mongodb');
   })
