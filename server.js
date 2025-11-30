@@ -198,14 +198,20 @@ const normalizeImagePath = (imagePath = "") => {
 
 // Seed initial data if database is empty
 const seedDatabase = async () => {
-  const count = await Destination.countDocuments();
-  if (count === 0) {
-    const normalizedDestinations = initialDestinations.map(dest => ({
-      ...dest,
-      main_image: normalizeImagePath(dest.main_image),
-    }));
-    await Destination.insertMany(normalizedDestinations);
-    console.log('Database seeded with initial destinations');
+  try {
+    const count = await Destination.countDocuments();
+    if (count === 0) {
+      const normalizedDestinations = initialDestinations.map(dest => ({
+        name: dest.name,
+        description: dest.description,
+        category: dest.category,
+        main_image: normalizeImagePath(dest.main_image),
+      }));
+      await Destination.insertMany(normalizedDestinations);
+      console.log('Database seeded with initial destinations');
+    }
+  } catch (error) {
+    console.log('Error seeding database:', error.message);
   }
 };
 
