@@ -5,9 +5,10 @@ A Node.js/Express server that provides travel destination data via REST API.
 ## Features
 
 - RESTful API endpoints for travel destinations
+- MongoDB database integration for persistent data storage
 - Beautiful styled landing page showing available API endpoints
 - CORS enabled for cross-origin requests
-- JSON data for 12 popular travel destinations worldwide
+- Automatic database seeding with initial destinations
 
 ## Installation
 
@@ -16,7 +17,13 @@ A Node.js/Express server that provides travel destination data via REST API.
 npm install
 ```
 
-2. Add images to the `public/images/` folder (see public/images/README.md for required image names)
+2. Set up MongoDB:
+   - Create a MongoDB Atlas account at https://www.mongodb.com/cloud/atlas
+   - Create a new cluster
+   - Get your connection string
+   - Set the `MONGODB_URI` environment variable with your connection string, or update the connection string in `server.js`
+
+3. Add images to the `public/images/` folder (see public/images/README.md for required image names)
 
 ## Running the Server
 
@@ -68,6 +75,7 @@ For Render:
 3. Connect your repository
 4. Set build command: `npm install`
 5. Set start command: `node server.js`
+6. Add environment variable `MONGODB_URI` with your MongoDB connection string
 
 ## Client Integration
 

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const Joi = require('joi');
+const mongoose = require('mongoose');
 const app = express();
 const PORT = 3004;
 
@@ -21,8 +22,28 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Travel destinations data
-let destinations = [
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGODB_URI || 'mongodb+srv://your-username:your-password@cluster.mongodb.net/travel-destinations?retryWrites=true&w=majority')
+  .then(() => {
+    console.log('connected to mongodb');
+  })
+  .catch((error) => {
+    console.log("couldn't connect to mongodb", error);
+  });
+
+// Destination schema
+const destinationSchema = new mongoose.Schema({
+  name: String,
+  description: String,
+  category: String,
+  main_image: String,
+});
+
+const Destination = mongoose.model('Destination', destinationSchema);
+
+// Initial destinations data for seeding (optional)
+const initialDestinations = [
   {
     "_id": 1,
     "name": "Fort Lauderdale, Florida",
@@ -172,10 +193,18 @@ const normalizeImagePath = (imagePath = "") => {
   return imagePath.startsWith('images/') ? imagePath : `images/${imagePath}`;
 };
 
-destinations = destinations.map(destination => ({
-  ...destination,
-  main_image: normalizeImagePath(destination.main_image),
-}));
+// Seed initial data if database is empty
+const seedDatabase = async () => {
+  const count = await Destination.countDocuments();
+  if (count === 0) {
+    const normalizedDestinations = initialDestinations.map(dest => ({
+      ...dest,
+      main_image: normalizeImagePath(dest.main_image),
+    }));
+    await Destination.insertMany(normalizedDestinations);
+    console.log('Database seeded with initial destinations');
+  }
+};
 
 // Routes
 app.get('/', (req, res) => {
@@ -183,24 +212,27 @@ app.get('/', (req, res) => {
 });
 
 // Get all destinations
-app.get('/api/destinations', (req, res) => {
+app.get('/api/destinations', async (req, res) => {
+  const destinations = await Destination.find();
   res.json(destinations);
 });
 
 // Get a single destination by ID
-app.get('/api/destinations/:id', (req, res) => {
-  const id = parseInt(req.params.id);
-  const destination = destinations.find(d => d._id === id);
-  
-  if (destination) {
-    res.json(destination);
-  } else {
-    res.status(404).json({ message: 'Destination not found' });
+app.get('/api/destinations/:id', async (req, res) => {
+  try {
+    const destination = await Destination.findOne({ _id: req.params.id });
+    if (destination) {
+      res.json(destination);
+    } else {
+      res.status(404).json({ message: 'Destination not found' });
+    }
+  } catch (error) {
+    res.status(400).json({ message: 'Invalid destination ID' });
   }
 });
 
 // Post a new destination
-app.post('/api/destinations', upload.single('img'), (req, res) => {
+app.post('/api/destinations', upload.single('img'), async (req, res) => {
   console.log('in post request');
   const result = validateDestination(req.body);
 
@@ -210,12 +242,11 @@ app.post('/api/destinations', upload.single('img'), (req, res) => {
     return;
   }
 
-  const destination = {
-    _id: destinations.length + 1,
+  const destination = new Destination({
     name: req.body.name,
     description: req.body.description,
     category: req.body.category,
-  };
+  });
 
   if (req.body.main_image && !req.file) {
     destination.main_image = normalizeImagePath(req.body.main_image);
@@ -225,18 +256,11 @@ app.post('/api/destinations', upload.single('img'), (req, res) => {
     destination.main_image = normalizeImagePath(req.file.filename);
   }
 
-  destinations.push(destination);
-  res.status(200).send(destination);
+  const newDestination = await destination.save();
+  res.status(200).send(newDestination);
 });
 
-app.put('/api/destinations/:id', upload.single('img'), (req, res) => {
-  const destination = destinations.find((d) => d._id === parseInt(req.params.id));
-  
-  if (!destination) {
-    res.status(404).send('The destination you wanted to edit is unavailable');
-    return;
-  }
-
+app.put('/api/destinations/:id', upload.single('img'), async (req, res) => {
   const isValidUpdate = validateDestination(req.body);
 
   if (isValidUpdate.error) {
@@ -245,32 +269,49 @@ app.put('/api/destinations/:id', upload.single('img'), (req, res) => {
     return;
   }
 
-  destination.name = req.body.name;
-  destination.description = req.body.description;
-  destination.category = req.body.category;
+  let fieldsToUpdate = {
+    name: req.body.name,
+    description: req.body.description,
+    category: req.body.category,
+  };
 
   if (req.body.main_image && !req.file) {
-    destination.main_image = normalizeImagePath(req.body.main_image);
+    fieldsToUpdate.main_image = normalizeImagePath(req.body.main_image);
   }
 
   if (req.file) {
-    destination.main_image = normalizeImagePath(req.file.filename);
+    fieldsToUpdate.main_image = normalizeImagePath(req.file.filename);
   }
 
-  res.status(200).send(destination);
+  try {
+    const result = await Destination.updateOne(
+      { _id: req.params.id },
+      fieldsToUpdate
+    );
+
+    if (result.matchedCount === 0) {
+      res.status(404).send('The destination you wanted to edit is unavailable');
+      return;
+    }
+
+    const updatedDestination = await Destination.findOne({ _id: req.params.id });
+    res.status(200).send(updatedDestination);
+  } catch (error) {
+    res.status(400).send('Invalid destination ID');
+  }
 });
 
-app.delete('/api/destinations/:id', (req, res) => {
-  const destination = destinations.find((d) => d._id === parseInt(req.params.id));
-  
-  if (!destination) {
-    res.status(404).send('The destination you wanted to delete is unavailable');
-    return;
+app.delete('/api/destinations/:id', async (req, res) => {
+  try {
+    const destination = await Destination.findByIdAndDelete(req.params.id);
+    if (destination) {
+      res.status(200).send(destination);
+    } else {
+      res.status(404).send('The destination you wanted to delete is unavailable');
+    }
+  } catch (error) {
+    res.status(400).send('Invalid destination ID');
   }
-
-  const index = destinations.indexOf(destination);
-  destinations.splice(index, 1);
-  res.status(200).send(destination);
 });
 
 const validateDestination = (destination) => {
@@ -286,7 +327,8 @@ const validateDestination = (destination) => {
 };
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Travel server is running on http://localhost:${PORT}`);
+  await seedDatabase();
 });
 
